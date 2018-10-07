@@ -1,0 +1,157 @@
+https://www.journaldev.com/2562/apache-poi-tutorial
+import org.apache.poi.hssf.usermodel.HSSFWorkbook
+import org.apache.poi.ss.usermodel.Cell
+import org.apache.poi.ss.usermodel.Row
+import org.apache.poi.ss.usermodel.Sheet
+import org.apache.poi.ss.usermodel.Workbook
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import com.amazonaws.AmazonServiceException
+import com.amazonaws.SdkClientException
+import com.amazonaws.auth.profile.ProfileCredentialsProvider
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
+import com.amazonaws.services.s3.model.GetObjectRequest
+import com.amazonaws.services.s3.model.ResponseHeaderOverrides
+import com.amazonaws.services.s3.model.S3Object
+import java.io._
+import org.apache.commons.io.IOUtils;
+org.apache.commons.lang.StringUtils
+
+
+trait ExcelHelper {
+
+
+/* readexcels3  - reads excel workbook(xls/xlsx) from s3 location
+   s3bucket: bucket name
+   path: file path
+   filetype: xls or xlsx
+ */
+  def readExcelS3(s3bucket: String, path:String, filetype:String) : Unit = {
+
+    val accesskey = "Test"
+    val accesssecret = "Test1"
+    val regname = "region"
+    var  workbook: Workbook = null
+    try
+      {
+        val s3 = new AmazonS3ClientBuilder().withRegion(regname).withCredentials(new ProfileCredentialsProvider()).build()
+
+        val fileobj = s3.getObject(s3bucket, path)
+
+        val objdata: InputStream = fileobj.getObjectContent()
+        if (filetype == "xlsx") {
+          workbook = new XSSFWorkbook(objdata)
+        }
+        else if (filetype == "xls") {
+          workbook = new HSSFWorkbook(objdata)
+        }
+      }
+    catch {
+      case e: AmazonServiceException => e.printStackTrace()
+      case e: SdkClientException => e.printStackTrace()
+        }
+    return workbook
+  }
+
+/*  wbktosheet - takes workbook as an input and return list of sheet name and data
+    workbook - input excel sheet
+    sheetname - list of sheetnames to be extracted. In case of empty list all sheets will be returned
+*/
+  def wbktoSheet(workbook: Workbook, sheetname: List[String]): Unit = {
+
+    val sheetlist = scala.collection.mutable.MutableList[String]()
+
+    if (sheetname.length == 0) {
+      for (i <- 0 to workbook.getNumberOfSheets()) {
+        sheetlist.addString(StringBuilder(workbook.getSheetName(i)))
+      }
+    }
+    else {
+      for (name <- sheetname) {
+        sheetlist.addString(StringBuilder(name))
+      }
+    }
+
+    var sheet : Sheet
+    val sheetdata = scala.collection.mutable.MutableList[(Sheet, String)]()
+    for (name <- sheetlist) {
+       sheetdata = (workbook.getSheet(name), "name") :: sheetdata
+    }
+
+   return sheetdata
+  }
+
+ /* Returns true if a row is empty */
+  def isRowEmpty (row: Row): Boolean = {
+    if (row == null) {
+      return true
+    }
+    if (row.getLastCellNum() <= 0) {
+      return true
+    }
+    for (cellnum <- row.getFirstCellNum() to  row.getLastCellNum()) {
+      var cell: Cell = row.getCell(cellnum)
+      if (cell != null && cell.getCellType() != Cell.CELL_TYPE_BLANK && cell.toString().trim().length() == 0) {
+        return false;
+      }
+    }
+    return false
+  }
+
+/*   filterEmptyRow will remove empty rows from the sheet */
+  def filterEmptyRow(sheet: Sheet): Sheet = {
+
+    return sheet
+  }
+
+/* delHeader will remove multiple headers from the sheet. The subsequent headers should not have data rows between them
+*  numHead is number of headers in a sheet
+* */
+  def delHeader(sheet: Sheet, numHead: Int) : Sheet = {
+    for (rownum <- 0 to numHead) {
+      sheet.removeRow(sheet.getRow(rownum))
+    }
+    return sheet
+  }
+
+ /*
+   delTrailer will delete trailer records from the excel sheet
+ */
+  def delTrailer(sheet: Sheet, numTrail: Int): Sheet = {
+    val lastrow = sheet.getLastRowNum()
+    var torow = lastrow - numTrail
+    for(i <- lastrow to (torow, -1)) {
+      sheet.removeRow(sheet.getRow(i))
+    }
+    return sheet
+  }
+
+/*  delRows will delete rows from sheet, input the row numbers to be deleted from sheet
+* */
+  def delRows(sheet: Sheet, rownum: List[Int]): Sheet = {
+    for (i <- rownum) {
+      sheet.removeRow(sheet.getRow(i))
+    }
+    return sheet
+  }
+
+/* deletes the row if a cell value matches any of the string list values
+  */
+  def delRowFilter(sheet: Sheet, cellnum: Int, listofval: List[String], op: String): Sheet ={
+
+    var row: Row = null
+    for (i <- 0 to sheet.getLastRowNum) {
+      if (listofval contains sheet.getRow(i).getCell(cellnum).toString()) {
+        sheet.removeRow(sheet.getRow(i))
+      }
+    }
+    return sheet
+  }
+  
+/* Return true if a condition is true */
+  
+  def isCondTrue(sheet: Sheet, cond: String)
+  
+  
+
+}
